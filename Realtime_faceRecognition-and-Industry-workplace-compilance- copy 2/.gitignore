@@ -1,0 +1,41 @@
+# ==========================
+# Google Cloud SDK / gcloud
+# ==========================
+
+# SDK binaries and archives
+google-cloud-sdk/
+*.tar.gz
+*.zip
+
+# Binaries inside SDK
+google-cloud-sdk/bin/
+google-cloud-sdk/lib/
+
+# gcloud local config and credentials
+.gcloud/
+*.config
+*.json
+*.key
+
+# Local cache, temp, and logs
+.cache/
+.tmp/
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / editor files
+.vscode/
+.idea/
+
+# Python virtual environment (if you use Python in your project)
+venv/
+.env/
+
+# Node.js dependencies (if you use Node.js)
+node_modules/
+
+# Logs
+*.log

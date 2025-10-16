@@ -1,0 +1,157 @@
+# ==========================
+# Node.js / React Projects
+# ==========================
+node_modules/
+dist/
+build/
+.cache/
+.next/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependency directories
+jspm_packages/
+
+# Coverage and temporary files
+coverage/
+.tmp/
+temp/
+tmp/
+
+# ==========================
+# Python Projects
+# ==========================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Django stuff
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Flask stuff
+instance/
+.webassets-cache
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# MyPy and Pyre type checker
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# ==========================
+# IDE / System Files
+# ==========================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# ==========================
+# Images (ignore all image files)
+# ==========================
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.tif
+*.svg
+*.webp
+*.ico
+
+# ==========================
+# Google Cloud SDK / gcloud
+# ==========================
+
+# SDK binaries and archives
+google-cloud-sdk/
+*.tar.gz
+*.zip
+
+# Binaries inside SDK
+google-cloud-sdk/bin/
+google-cloud-sdk/lib/
+
+# gcloud local config and credentials
+.gcloud/
+*.config
+*.json
+*.key

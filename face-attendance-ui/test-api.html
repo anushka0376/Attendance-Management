@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Frontend-Backend Connection Test</h1>
+    
+    <div id="status" class="status info">Testing connection...</div>
+    
+    <button onclick="testBackend()">Test Backend Connection</button>
+    <button onclick="testStudents()">Test Students API</button>
+    <button onclick="testSystemStatus()">Test System Status</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        async function testBackend() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                statusDiv.innerHTML = 'Testing backend connection...';
+                statusDiv.className = 'status info';
+                
+                const response = await fetch(`${API_BASE}/api/system/status`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = '✅ Backend connected successfully!';
+                    statusDiv.className = 'status success';
+                    resultsDiv.innerHTML = `<h3>System Status:</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `❌ Backend connection failed: ${error.message}`;
+                statusDiv.className = 'status error';
+                resultsDiv.innerHTML = `<h3>Error Details:</h3><pre>${error.stack}</pre>`;
+            }
+        }
+        
+        async function testStudents() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/students`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultsDiv.innerHTML = `<h3>Students Data (${data.students?.length || 0} students):</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<h3>Students API Error:</h3><pre>${error.message}</pre>`;
+            }
+        }
+        
+        async function testSystemStatus() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/system/status`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultsDiv.innerHTML = `<h3>System Status:</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<h3>System Status Error:</h3><pre>${error.message}</pre>`;
+            }
+        }
+        
+        // Auto-test on load
+        window.addEventListener('load', testBackend);
+    </script>
+</body>
+</html>

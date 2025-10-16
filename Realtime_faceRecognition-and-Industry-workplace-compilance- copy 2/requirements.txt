@@ -1,0 +1,16 @@
+# Dependencies for Face Recognition Attendance System
+# Core CV and ML libraries
+opencv-python>=4.5.0
+face-recognition>=1.3.0
+numpy>=1.21.0
+
+# Data handling
+pandas>=1.3.0
+openpyxl>=3.0.7
+
+# Google Sheets integration
+gspread>=5.0.0
+oauth2client>=4.1.3
+
+# Other dependencies are standard library:
+# sqlite3, datetime, socket, os, warnings, platform

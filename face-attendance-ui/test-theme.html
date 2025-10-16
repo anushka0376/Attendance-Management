@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theme Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --background: #f9fafb;
+            --foreground: #111827;
+            --card: #ffffff;
+            --primary: #2563eb;
+            --primary-foreground: #ffffff;
+            --secondary: #f3f4f6;
+            --border: #e5e7eb;
+            --radius: 0.625rem;
+        }
+        
+        .dark {
+            --background: #0f172a;
+            --foreground: rgba(255, 255, 255, 0.92);
+            --card: rgba(255, 255, 255, 0.08);
+            --primary: #4f46e5;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+        
+        body {
+            background-color: var(--background);
+            color: var(--foreground);
+        }
+        
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+            border-radius: var(--radius);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Smart Face Attendance - Theme Test</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div class="card p-6">
+                <h3 class="text-lg font-semibold mb-4">Students</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Total registered students</p>
+                <div class="text-2xl font-bold text-blue-600">45</div>
+            </div>
+            
+            <div class="card p-6">
+                <h3 class="text-lg font-semibold mb-4">Present Today</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Attendance for today</p>
+                <div class="text-2xl font-bold text-green-600">38</div>
+            </div>
+            
+            <div class="card p-6">
+                <h3 class="text-lg font-semibold mb-4">Attendance Rate</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Overall percentage</p>
+                <div class="text-2xl font-bold text-purple-600">84%</div>
+            </div>
+        </div>
+        
+        <div class="card p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Quick Actions</h2>
+            <div class="flex gap-4">
+                <button class="btn-primary px-4 py-2 text-sm font-medium">Add Student</button>
+                <button class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded text-sm font-medium">Mark Attendance</button>
+                <button class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded text-sm font-medium">View Records</button>
+            </div>
+        </div>
+        
+        <div class="card p-6">
+            <h2 class="text-xl font-semibold mb-4">API Status</h2>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span>Backend API:</span>
+                    <span class="text-green-600 font-medium">✅ Connected</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Database:</span>
+                    <span class="text-green-600 font-medium">✅ Active</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Camera:</span>
+                    <span class="text-yellow-600 font-medium">⚠️ Testing</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-8 text-center">
+            <button onclick="toggleTheme()" class="bg-gray-200 dark:bg-gray-700 px-6 py-2 rounded font-medium">
+                Toggle Dark Mode
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+    </script>
+</body>
+</html>

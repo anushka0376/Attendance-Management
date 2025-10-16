@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Connection Test</title>
+</head>
+<body>
+    <h1>Testing Server Connection</h1>
+    
+    <h2>Frontend Test (localhost:3000)</h2>
+    <button onclick="testFrontend()">Test Frontend</button>
+    <div id="frontend-result"></div>
+    
+    <h2>Backend Test (localhost:8000)</h2>
+    <button onclick="testBackend()">Test Backend</button>
+    <div id="backend-result"></div>
+    
+    <script>
+        async function testFrontend() {
+            try {
+                const response = await fetch('http://localhost:3000');
+                document.getElementById('frontend-result').innerHTML = 
+                    `<p style="color: green;">✅ Frontend responding! Status: ${response.status}</p>`;
+            } catch (error) {
+                document.getElementById('frontend-result').innerHTML = 
+                    `<p style="color: red;">❌ Frontend error: ${error.message}</p>`;
+            }
+        }
+        
+        async function testBackend() {
+            try {
+                const response = await fetch('http://localhost:8000/api/students');
+                const data = await response.json();
+                document.getElementById('backend-result').innerHTML = 
+                    `<p style="color: green;">✅ Backend responding! Students: ${data.length}</p>`;
+            } catch (error) {
+                document.getElementById('backend-result').innerHTML = 
+                    `<p style="color: red;">❌ Backend error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
