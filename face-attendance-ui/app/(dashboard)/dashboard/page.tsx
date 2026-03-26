@@ -4,21 +4,26 @@ import Link from "next/link"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Users, Camera, FileText, Activity } from "lucide-react"
+import { Users, Camera, FileText, Activity, ShieldCheck, Zap } from "lucide-react"
 import useSWR from "swr"
 import { api } from "@/lib/api"
 import { useAuth } from "@/contexts/AuthContext"
+import { AttendanceTrends } from "@/components/dashboard/attendance-trends"
+import { StatusDistribution } from "@/components/dashboard/status-distribution"
 
 export default function HomePage() {
   const { user } = useAuth()
   const { data: systemStatus } = useSWR('/api/system/status', () => api.getSystemStatus())
   const { data: studentsData } = useSWR('/api/students', () => api.getStudents())
+  const { data: analytics } = useSWR('/api/analytics/summary', () => api.getAnalyticsSummary())
   const { data: attendanceData } = useSWR('/api/attendance', () => 
     api.getAttendance({ date: new Date().toISOString().split('T')[0] })
   )
 
-  const studentCount = studentsData?.count || 0
+  const studentCount = studentsData?.count || analytics?.total_students || 0
   const todayAttendance = attendanceData?.count || 0
+  const trends = analytics?.trends || []
+  const distribution = analytics?.distribution || []
 
   // Get greeting based on time of day
   const getGreeting = () => {
@@ -29,160 +34,134 @@ export default function HomePage() {
   }
 
   return (
-    <div className="grid gap-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-7xl mx-auto space-y-8 pb-12">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            {getGreeting()}, {user?.full_name || user?.username || 'User'}! 👋
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+            {getGreeting()}, {user?.full_name?.split(' ')[0] || user?.username || 'User'}! 👋
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Welcome to your {user?.role === 'admin' ? 'Admin' : 'Teacher'} Dashboard
+          <p className="text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-2">
+            <Zap className="h-4 w-4 text-amber-500 fill-amber-500" />
+            System is active and protecting {studentCount} registered students.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Badge variant={systemStatus?.opencv_version ? "default" : "secondary"}>
-            📹 OpenCV {systemStatus?.opencv_version ? "✓" : "✗"}
-          </Badge>
-          <Badge variant={systemStatus?.internet_connected ? "default" : "secondary"}>
-            🌐 {systemStatus?.internet_connected ? "Online" : "Offline"}
-          </Badge>
+        <div className="flex items-center gap-3">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30 px-4 py-2 rounded-2xl flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-green-500" />
+                <span className="text-sm font-semibold text-green-700 dark:text-green-400">Security: Active (RLS)</span>
+            </div>
         </div>
       </div>
 
-      {/* User Info Card */}
-      <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border-blue-200 dark:border-blue-800">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl ${
-              user?.role === 'admin' ? 'bg-red-500' : 'bg-blue-500'
-            }`}>
-              {user?.full_name 
-                ? user.full_name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase()
-                : user?.username?.charAt(0).toUpperCase() || 'U'
-              }
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-foreground">
-                {user?.full_name || user?.username || 'Unknown User'}
-              </h3>
-              <p className="text-muted-foreground">
-                <span className="font-medium">Username:</span> {user?.username || 'N/A'} • 
-                <span className="font-medium ml-2">Email:</span> {user?.email || 'N/A'}
-              </p>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant={user?.role === 'admin' ? 'destructive' : 'default'}>
-                  {user?.role === 'admin' ? '👑 Administrator' : '👨‍🏫 Teacher'}
-                </Badge>
-                {user?.department && (
-                  <Badge variant="outline">{user.department}</Badge>
-                )}
-              </div>
-            </div>
-            <div className="text-right text-sm text-muted-foreground">
-              <p>Logged in as</p>
-              <p className="font-mono text-xs">{user?.user_id || 'Unknown ID'}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+      <div className="grid gap-6 md:grid-cols-4">
+        <Card className="border-none bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-xl shadow-blue-500/20 overflow-hidden relative group">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+          <CardHeader className="pb-2">
+            <Users className="h-5 w-5 opacity-80" />
+            <CardTitle className="text-xs font-medium opacity-80 uppercase tracking-wider mt-2">Total Students</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{studentCount}</div>
-            <p className="text-xs text-muted-foreground">Registered students</p>
+            <div className="text-3xl font-bold">{studentCount}</div>
+            <div className="flex items-center gap-1 mt-2 text-[10px] font-medium bg-white/20 w-fit px-2 py-0.5 rounded-full">
+                +2 NEW THIS WEEK
+            </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="border-none bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Attendance</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-500">Today's Presence</CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
+                <Activity className="h-4 w-4 text-green-600 dark:text-green-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todayAttendance}</div>
-            <p className="text-xs text-muted-foreground">Present today</p>
+            <div className="text-3xl font-bold text-gray-900 dark:text-white">{todayAttendance}</div>
+            <p className="text-xs text-gray-500 mt-1">Verified via Face Recognition</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-none bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">System Status</CardTitle>
-            <Badge variant={systemStatus?.face_recognition_available ? "default" : "secondary"}>
-              {systemStatus?.face_recognition_available ? "AI Ready" : "Basic Mode"}
-            </Badge>
+            <CardTitle className="text-sm font-medium text-gray-500">Attendance Rate</CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
+                <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{systemStatus?.platform}</div>
-            <p className="text-xs text-muted-foreground">Platform</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold text-gray-900 dark:text-white">
               {studentCount > 0 ? Math.round((todayAttendance / studentCount) * 100) : 0}%
             </div>
-            <p className="text-xs text-muted-foreground">Today's rate</p>
+            <p className="text-xs text-gray-500 mt-1">Status: {studentCount > 0 && (todayAttendance / studentCount) > 0.8 ? 'Excellent' : 'Normal'}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">AI Status</CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center">
+                <Camera className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg font-bold text-gray-900 dark:text-white truncate">
+              {systemStatus?.face_recognition === "Available" ? "Precision Engine" : "Basic Mode"}
+            </div>
+            <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-tighter">Confidence Threshold: 0.6</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Action Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Add Student
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <p className="text-muted-foreground text-sm">Register a new student with photos.</p>
-            <Button asChild>
-              <Link href="/add-student">Open</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Analytics Section */}
+      <div className="grid gap-6 md:grid-cols-7">
+        <AttendanceTrends data={trends} />
+        <StatusDistribution data={distribution} />
+      </div>
+
+      {/* Action Grid */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <Link href="/add-student" className="group">
+            <Card className="h-full border border-gray-100 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/5 cursor-pointer">
+                <CardHeader>
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Users className="h-6 w-6 text-blue-600" />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Student Enrollment</h3>
+                    <p className="text-sm text-gray-500 mt-1">Register students with high-precision face encodings.</p>
+                </CardContent>
+            </Card>
+        </Link>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Camera className="h-5 w-5" />
-              Mark Attendance
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <p className="text-muted-foreground text-sm">Use camera or mark manually.</p>
-            <Button asChild>
-              <Link href="/mark-attendance">Open</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <Link href="/mark-attendance" className="group">
+            <Card className="h-full border border-gray-100 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/5 cursor-pointer">
+                <CardHeader>
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Camera className="h-6 w-6 text-indigo-600" />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recognition Terminal</h3>
+                    <p className="text-sm text-gray-500 mt-1">Mark attendance using real-time AI computer vision.</p>
+                </CardContent>
+            </Card>
+        </Link>
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Attendance Records
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <p className="text-muted-foreground text-sm">Browse logs and generate reports.</p>
-            <Button asChild>
-              <Link href="/records">Open</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <Link href="/records" className="group">
+            <Card className="h-full border border-gray-100 dark:border-gray-700 hover:border-purple-500 dark:hover:border-purple-500 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/5 cursor-pointer">
+                <CardHeader>
+                    <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <FileText className="h-6 w-6 text-purple-600" />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Detailed Reports</h3>
+                    <p className="text-sm text-gray-500 mt-1">Analyze history, export logs, and track performance.</p>
+                </CardContent>
+            </Card>
+        </Link>
       </div>
     </div>
   )

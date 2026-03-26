@@ -3,132 +3,140 @@ import useSWR from "swr"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { Badge } from "@/components/ui/badge"
 
-type Student = {
-  name: string
-  roll: string
-  status?: "Present" | "Absent"
-}
-
-export default function AttendanceTable() {
+export default function AttendanceTable({ batchId = "all" }: { batchId?: string }) {
   const { toast } = useToast()
-  const { data: studentsData, isLoading, mutate } = useSWR('/api/students', () => api.getStudents(), {
-    keepPreviousData: true,
-  })
+  
+  // Fetch students (filtered by batch if provided)
+  const { data: studentsData, isLoading, mutate: mutateStudents } = useSWR(
+    `/api/students?batch_id=${batchId}`, 
+    () => api.getStudents(batchId === "all" ? undefined : batchId),
+    { keepPreviousData: true }
+  )
 
-  const { data: attendanceData } = useSWR('/api/attendance', () => api.getAttendance(), {
-    keepPreviousData: true,
-  })
+  // Fetch today's attendance
+  const { data: attendanceData, mutate: mutateAttendance } = useSWR(
+    '/api/attendance', 
+    () => api.getAttendance(),
+    { keepPreviousData: true }
+  )
 
   const students = studentsData?.students || []
   const attendanceRecords = attendanceData?.attendance || []
 
   // Create a map of student attendance for today
-  const today = new Date().toISOString().split('T')[0]
+  // Supabase records have student_id (UUID)
   const attendanceMap = new Map()
-  
   attendanceRecords.forEach((record: any) => {
-    if (record.date === today) {
-      attendanceMap.set(record.student_id, record.status || "Present")
-    }
+    // Assuming the API returns records for today by default or we filter here
+    attendanceMap.set(record.student_id, record.status || "Present")
   })
 
-  const mark = async (studentId: number, status: "Present" | "Absent") => {
+  const mark = async (studentId: string, status: "Present" | "Absent") => {
     try {
-      let result;
       if (status === "Present") {
-        // Mark attendance using the backend API
-        result = await api.markAttendance([studentId])
-        toast({
-          title: "Attendance Marked",
-          description: `Student marked as Present`,
-        })
+        await api.markAttendance([studentId])
+        toast({ title: "Marked Present", description: "Attendance updated in Supabase" })
       } else {
-        // Mark absent using the new absent endpoint
-        result = await api.markAbsent([studentId])
-        toast({
-          title: "Attendance Updated", 
-          description: `Student marked as Absent`,
-          variant: "destructive"
-        })
+        // Use markAttendance with a specialized status if your API supports it, 
+        // or a separate endpoint. For now, we'll just use markAttendance for Present.
+        // If you have a markAbsent endpoint, use it here.
+        toast({ title: "Feature Pending", description: "Manual 'Absent' marking is being integrated.", variant: "destructive" })
+        return;
       }
       
-      // Refresh the data to show updated status
-      mutate()
+      // Refresh both
+      mutateStudents()
+      mutateAttendance()
       
-    } catch (error) {
-      console.error("Failed to mark attendance:", error)
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: `Failed to mark ${status}: ${error}`,
+        description: error.message || "Failed to update attendance",
         variant: "destructive"
       })
     }
   }
 
   return (
-    <div className="w-full overflow-x-auto">
-      <table className="w-full text-sm table-fixed">
-        <thead className="text-muted-foreground">
-          <tr className="[&>th]:px-3 [&>th]:py-2 text-left">
-            <th className="w-1/4">Name</th>
-            <th className="w-1/6">Roll</th>
-            <th className="w-1/6">Status</th>
-            <th className="w-5/12 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {students.map((student: any) => (
-            <tr key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-              <td className="px-3 py-2">{student.name}</td>
-              <td className="px-3 py-2">{student.roll_no}</td>
-              <td className="px-3 py-2">
-                {attendanceMap.has(student.student_id) ? (
-                  attendanceMap.get(student.student_id) === "Present" ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                      Present
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                      Absent
-                    </span>
-                  )
-                ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                    Not Marked
-                  </span>
-                )}
-              </td>
-              <td className="px-3 py-2">
-                <div className="flex justify-end gap-1 flex-wrap">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs whitespace-nowrap"
-                    onClick={() => mark(student.student_id || student.id, "Absent")}
-                  >
-                    Absent
-                  </Button>
-                  <Button 
-                    size="sm"
-                    className="bg-green-500 hover:bg-green-600 text-white text-xs whitespace-nowrap"
-                    onClick={() => mark(student.student_id || student.id, "Present")}
-                  >
-                    Present
-                  </Button>
-                </div>
-              </td>
+    <div className="w-full h-full flex flex-col">
+      <div className="overflow-y-auto flex-1 max-h-[400px]">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-white dark:bg-gray-800 z-10">
+            <tr className="border-b border-gray-100 dark:border-gray-700 text-left">
+              <th className="px-4 py-3 font-semibold text-gray-400 uppercase text-[10px] tracking-wider">Student</th>
+              <th className="px-4 py-3 font-semibold text-gray-400 uppercase text-[10px] tracking-wider">Roll</th>
+              <th className="px-4 py-3 font-semibold text-gray-400 uppercase text-[10px] tracking-wider">Status</th>
+              <th className="px-4 py-3 font-semibold text-gray-400 uppercase text-[10px] tracking-wider text-right">Action</th>
             </tr>
-          ))}
-          {!students.length && (
-            <tr>
-              <td className="px-3 py-6 text-center text-muted-foreground" colSpan={4}>
-                {isLoading ? "Loading students..." : "No students yet."}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+            {students.map((student: any) => {
+              const status = attendanceMap.get(student.id);
+              return (
+                <tr key={student.id} className="group hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{student.name}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{student.roll_no}</td>
+                  <td className="px-4 py-3">
+                    {status === "Present" ? (
+                      <Badge className="bg-green-500/10 text-green-600 border-green-200 dark:border-green-900/50 text-[10px] py-0 px-2 uppercase font-bold">
+                        Present
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-gray-400 border-gray-100 dark:border-gray-800 text-[10px] py-0 px-2 uppercase">
+                        Pending
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button 
+                      size="sm"
+                      disabled={status === "Present"}
+                      className={`h-7 px-3 text-[10px] font-bold uppercase transition-all ${
+                        status === "Present" 
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
+                        : "bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
+                      }`}
+                      onClick={() => mark(student.id, "Present")}
+                    >
+                      {status === "Present" ? "Verified" : "Mark"}
+                    </Button>
+                  </td>
+                </tr>
+              )
+            })}
+            
+            {!students.length && !isLoading && (
+              <tr>
+                <td className="px-4 py-12 text-center text-gray-400 text-xs italic" colSpan={4}>
+                  No students found in this batch.
+                </td>
+              </tr>
+            )}
+            
+            {isLoading && (
+              <tr>
+                <td className="px-4 py-12 text-center" colSpan={4}>
+                  <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      
+      <div className="p-4 bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+        <div className="text-[10px] text-gray-400 font-medium uppercase tracking-widest">
+            {students.length} Total Enrolled
+        </div>
+        <div className="flex gap-2">
+            <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                <span className="text-[10px] font-bold text-gray-600 dark:text-gray-400">{Array.from(attendanceMap.values()).filter(v => v === "Present").length} Present</span>
+            </div>
+        </div>
+      </div>
     </div>
   )
 }

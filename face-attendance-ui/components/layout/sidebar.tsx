@@ -2,13 +2,14 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, UserPlus, ScanFace, Table, Settings, User, Users } from "lucide-react"
+import { LayoutDashboard, UserPlus, ScanFace, Table, Settings, User, Users, Layers } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/add-student", label: "Add Student", icon: UserPlus },
   { href: "/students", label: "Manage Students", icon: Users },
+  { href: "/batches", label: "Manage Batches", icon: Layers },
   { href: "/mark-attendance", label: "Mark Attendance", icon: ScanFace },
   { href: "/records", label: "View Records", icon: Table },
   { href: "/profile", label: "Profile", icon: User },
@@ -47,11 +48,19 @@ export default function Sidebar() {
       {/* Header */}
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 ${getRoleColor(user?.role || 'teacher')} rounded-lg flex items-center justify-center`}>
-            <span className="text-white font-bold text-lg">
-              {user?.full_name ? getUserInitials(user.full_name) : user?.username?.charAt(0).toUpperCase() || 'U'}
-            </span>
-          </div>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm overflow-hidden shadow-sm border border-white/20 ${
+              user?.role === 'admin' ? 'bg-red-500' : 'bg-blue-500'
+            }`}>
+              {user?.profile_photo_url ? (
+                <img 
+                  src={user.profile_photo_url || "/placeholder-user.png"} 
+                  alt={user.full_name} 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                user?.full_name ? getUserInitials(user.full_name) : user?.username?.charAt(0).toUpperCase() || 'U'
+              )}
+            </div>
           <div>
             <div className="font-semibold text-gray-900 dark:text-white text-sm">
               {user?.full_name || user?.username || 'User'}
@@ -106,13 +115,6 @@ export default function Sidebar() {
           </span>
         </div>
 
-        {/* User ID Display */}
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500 dark:text-gray-400">ID:</span>
-          <span className="text-xs font-mono text-gray-700 dark:text-gray-300">
-            {user?.username || 'N/A'}
-          </span>
-        </div>
 
         {/* Logout Button */}
         <button 

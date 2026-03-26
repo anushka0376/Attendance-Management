@@ -61,15 +61,7 @@ export default function SignupPage() {
       >
         {/* Header Section */}
         <div className="mb-8 text-center">
-          <div className="mb-6 flex justify-between items-center">
-            <Link 
-              href="/login" 
-              className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Login
-            </Link>
-            
+          <div className="mb-6 flex justify-center items-center">
             {isAuthenticated && (
               <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                 <Shield className="w-4 h-4" />
@@ -79,27 +71,27 @@ export default function SignupPage() {
           </div>
 
           {/* Welcome Header */}
-          <div className="glass-panel p-6 mb-6 border border-border/50">
-            <div className="flex items-center justify-center space-x-4 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <GraduationCap className="w-6 h-6 text-white" />
+          <div className="py-8 mb-4">
+            <div className="flex flex-col items-center justify-center space-y-4 mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl rotate-3 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <GraduationCap className="w-8 h-8 text-white -rotate-3" />
               </div>
-              <div className="text-left">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <div className="text-center">
+                <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent">
                   Join Our Platform
                 </h1>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground font-medium mt-1">
                   Create account for Teachers & Administrators
                 </p>
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center space-x-2 text-blue-600">
+            <div className="flex items-center justify-center gap-6 text-sm font-semibold">
+              <div className="flex items-center space-x-2 text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-4 py-1.5 rounded-full border border-blue-100 dark:border-blue-800">
                 <Shield className="w-4 h-4" />
                 <span>Secure Authentication</span>
               </div>
-              <div className="flex items-center space-x-2 text-purple-600">
+              <div className="flex items-center space-x-2 text-violet-600 bg-violet-50 dark:bg-violet-900/20 px-4 py-1.5 rounded-full border border-violet-100 dark:border-violet-800">
                 <GraduationCap className="w-4 h-4" />
                 <span>Education Focused</span>
               </div>
@@ -135,49 +127,16 @@ export default function SignupPage() {
           />
         </div>
 
-        {/* Already have account */}
-        <div className="mt-6 text-center">
-          <div className="glass-panel p-4 border border-border/50">
-            <p className="text-sm text-muted-foreground mb-3">
-              Already have an account?
-            </p>
-            <Link 
-              href="/login"
-              className="inline-flex items-center justify-center px-6 py-2 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
-            >
-              <LogIn className="w-4 h-4 mr-2" />
-              Sign In to Your Account
-            </Link>
-          </div>
-        </div>
 
-        {/* Account Types Info */}
-        <div className="mt-6 grid grid-cols-2 gap-4">
-          <div className="glass-panel p-4 border border-border/50">
-            <div className="flex items-center space-x-2 mb-2">
-              <GraduationCap className="w-5 h-5 text-blue-500" />
-              <h3 className="font-semibold text-sm">Teacher Account</h3>
-            </div>
-            <ul className="text-xs text-muted-foreground space-y-1">
-              <li>• Mark student attendance</li>
-              <li>• View class reports</li>
-              <li>• Access student records</li>
-              <li>• Generate attendance sheets</li>
-            </ul>
-          </div>
-          
-          <div className="glass-panel p-4 border border-border/50">
-            <div className="flex items-center space-x-2 mb-2">
-              <Shield className="w-5 h-5 text-purple-500" />
-              <h3 className="font-semibold text-sm">Admin Account</h3>
-            </div>
-            <ul className="text-xs text-muted-foreground space-y-1">
-              <li>• Manage all users</li>
-              <li>• System configuration</li>
-              <li>• Full attendance access</li>
-              <li>• Create teacher accounts</li>
-            </ul>
-          </div>
+        {/* Login Link */}
+        <div className="mt-8 text-center">
+          <Link 
+            href="/login" 
+            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-500 transition-colors bg-white/5 px-6 py-2 rounded-full border border-white/10 hover:border-blue-500/30 shadow-md backdrop-blur-sm"
+          >
+            <LogIn className="w-4 h-4" />
+            <span>Already have an account? Log In</span>
+          </Link>
         </div>
 
         {/* Footer */}

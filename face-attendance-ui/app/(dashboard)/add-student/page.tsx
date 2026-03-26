@@ -14,8 +14,8 @@ import CameraFeed, { type CameraFeedRef } from "@/components/camera/camera-feed"
 export default function AddStudentPage() {
   const [fullName, setFullName] = useState("")
   const [rollNumber, setRollNumber] = useState("")
-  const [groupName, setGroupName] = useState("")
-  const [semesterName, setSemesterName] = useState("")
+  const [startYear, setStartYear] = useState(new Date().getFullYear().toString())
+  const [endYear, setEndYear] = useState((new Date().getFullYear() + 4).toString())
   const [departmentName, setDepartmentName] = useState("")
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [capturedImages, setCapturedImages] = useState<File[]>([])
@@ -24,9 +24,12 @@ export default function AddStudentPage() {
   
   const cameraRef = useRef<CameraFeedRef>(null)
   const { toast } = useToast()
-  const { data: studentsData, error } = useSWR('/api/students', () => api.getStudents())
+  
+  const { data: studentsData } = useSWR('/api/students', () => api.getStudents())
+  const { data: batchesData } = useSWR('/api/batches', () => api.getBatches())
   
   const students = studentsData?.students || []
+  const batches = batchesData?.batches || []
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
@@ -54,14 +57,15 @@ export default function AddStudentPage() {
       const blob = await cameraRef.current.capture()
       const file = new File([blob], `capture_${Date.now()}.jpg`, { type: 'image/jpeg' })
       
-              if (capturedImages.length >= 5) {
+      if (capturedImages.length >= 5) {
         toast({
           title: "Maximum reached",
           description: "You can capture 3-5 images for best results",
           variant: "destructive"
         })
         return
-      }      setCapturedImages(prev => [...prev, file])
+      }
+      setCapturedImages(prev => [...prev, file])
       toast({
         title: "Image captured",
         description: `Captured ${capturedImages.length + 1}/5 images`,
@@ -88,10 +92,20 @@ export default function AddStudentPage() {
   }
 
   const handleAddStudent = async () => {
-    if (!fullName || !rollNumber || !groupName || !semesterName || !departmentName) {
+    if (!fullName || !rollNumber || !startYear || !endYear || !departmentName) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields (Name, Roll Number, Group, Semester, Department)",
+        description: "Please fill in all required fields (Name, Roll Number, Years, Department)",
+        variant: "destructive"
+      })
+      return
+    }
+
+    const allImages = [...selectedFiles, ...capturedImages]
+    if (allImages.length < 3) {
+      toast({
+        title: "Incomplete facial data",
+        description: "Please capture or select at least 3 images (max 5) for reliable face recognition.",
         variant: "destructive"
       })
       return
@@ -99,35 +113,50 @@ export default function AddStudentPage() {
 
     setLoading(true)
     try {
-      // Add student to database
+      // 1. Find or create batch
+      let targetBatchId = ""
+      const existingBatch = batches.find((b: any) => 
+        b.start_year === parseInt(startYear) && b.end_year === parseInt(endYear)
+      )
+
+      if (existingBatch) {
+        targetBatchId = existingBatch.id
+      } else {
+        const newBatch = await api.createBatch({
+          name: `${startYear}-${endYear}`,
+          start_year: parseInt(startYear),
+          end_year: parseInt(endYear),
+          degree_duration: parseInt(endYear) - parseInt(startYear)
+        })
+        targetBatchId = newBatch.id
+        mutate('/api/batches') // Refresh batches cache
+      }
+
+      // 2. Add student to database
       const response = await api.addStudent({
         name: fullName,
         roll_no: rollNumber,
-        group_name: groupName,
-        semester_name: semesterName,
-        department_name: departmentName
+        batch_id: targetBatchId,
+        department: departmentName
       })
 
-      // Upload images if selected or captured
-      const allImages = [...selectedFiles, ...capturedImages]
-      if (allImages.length > 0 && response.student_id) {
-        await api.uploadStudentImages(response.student_id, allImages)
+      // 3. Upload images if selected or captured
+      if (allImages.length > 0 && response.student?.id) {
+        await api.uploadStudentImages(response.student.id, allImages)
         toast({
-          title: "Success",
-          description: `Student added with ${allImages.length} images!`,
+          title: "Registration Success",
+          description: `${fullName} added to batch ${startYear}-${endYear} with cloud-synced facial data.`,
         })
       } else {
         toast({
-          title: "Success", 
-          description: "Student added successfully!",
+          title: "Student Added",
+          description: `${fullName} has been registered!`,
         })
       }
 
       // Reset form
       setFullName("")
       setRollNumber("")
-      setGroupName("")
-      setSemesterName("")
       setDepartmentName("")
       setSelectedFiles([])
       setCapturedImages([])
@@ -147,7 +176,7 @@ export default function AddStudentPage() {
     }
   }
 
-  const handleDeleteStudent = async (studentId: number) => {
+  const handleDeleteStudent = async (studentId: string) => {
     try {
       await api.deleteStudent(studentId)
       toast({
@@ -171,7 +200,7 @@ export default function AddStudentPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Student Enrollment</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Manage student registrations and face recognition data
+            Manage student registrations and face recognition data (Supabase)
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
@@ -214,40 +243,33 @@ export default function AddStudentPage() {
                   className="w-full"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Group/Class *
-                </label>
-                <Input
-                  placeholder="Enter group (e.g., G1, G2, G3...)"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  className="w-full"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Format: G1, G2, G3, etc.
-                </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Start Year *
+                  </label>
+                  <Input
+                    type="number"
+                    value={startYear}
+                    onChange={(e) => setStartYear(e.target.value)}
+                    className="w-full"
+                    placeholder="e.g. 2023"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    End Year *
+                  </label>
+                  <Input
+                    type="number"
+                    value={endYear}
+                    onChange={(e) => setEndYear(e.target.value)}
+                    className="w-full"
+                    placeholder="e.g. 2027"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Semester *
-                </label>
-                <Select value={semesterName} onValueChange={setSemesterName}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select semester" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sem1">Semester 1</SelectItem>
-                    <SelectItem value="sem2">Semester 2</SelectItem>
-                    <SelectItem value="sem3">Semester 3</SelectItem>
-                    <SelectItem value="sem4">Semester 4</SelectItem>
-                    <SelectItem value="sem5">Semester 5</SelectItem>
-                    <SelectItem value="sem6">Semester 6</SelectItem>
-                    <SelectItem value="sem7">Semester 7</SelectItem>
-                    <SelectItem value="sem8">Semester 8</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Department *
@@ -365,7 +387,7 @@ export default function AddStudentPage() {
                   <Button 
                     variant="default" 
                     className="bg-blue-500 hover:bg-blue-600 text-white flex-1"
-                    disabled={loading || !fullName || !rollNumber || !groupName || !semesterName || !departmentName}
+                    disabled={loading || !fullName || !rollNumber || !startYear || !endYear || !departmentName}
                     onClick={handleAddStudent}
                   >
                     {loading ? "Adding..." : "Enroll Student"}
@@ -377,7 +399,7 @@ export default function AddStudentPage() {
                 <Button 
                   variant="default" 
                   className="bg-blue-500 hover:bg-blue-600 text-white w-full mt-2"
-                  disabled={loading || !fullName || !rollNumber || !groupName || !semesterName || !departmentName}
+                  disabled={loading || !fullName || !rollNumber || !startYear || !endYear || !departmentName}
                   onClick={handleAddStudent}
                 >
                   {loading ? "Adding..." : "Enroll Student"}
@@ -396,7 +418,7 @@ export default function AddStudentPage() {
                   <Users className="h-5 w-5 text-blue-500" />
                   Enrolled Students
                 </CardTitle>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => mutate('/api/students')}>
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh
                 </Button>
@@ -410,18 +432,22 @@ export default function AddStudentPage() {
                     className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                        {student.name.charAt(0).toUpperCase()}
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
+                        {student.image_urls && student.image_urls.length > 0 ? (
+                          <img src={student.image_urls[0]} alt={student.name} className="w-full h-full object-cover" />
+                        ) : (
+                          student.name.charAt(0).toUpperCase()
+                        )}
                       </div>
                       <div>
                         <div className="font-medium text-gray-900 dark:text-white">
                           {student.name}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          Roll No: {student.roll_no} • {student.class_name || student.group_name}
+                          Roll No: {student.roll_no} • {batches.find((b:any) => b.id === student.batch_id)?.name || 'No Batch'}
                         </div>
                         <div className="text-xs text-gray-400 dark:text-gray-500">
-                          {student.semester_id && `Sem ${student.semester_id}`} • {student.department_id}
+                          {student.department}
                         </div>
                       </div>
                     </div>
@@ -440,7 +466,7 @@ export default function AddStudentPage() {
                           variant="ghost" 
                           size="sm" 
                           className="h-8 w-8 p-0"
-                          onClick={() => handleDeleteStudent(student.student_id || student.id)}
+                          onClick={() => handleDeleteStudent(student.id)}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
