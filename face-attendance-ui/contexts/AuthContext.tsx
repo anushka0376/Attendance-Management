@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
+import { api } from '@/lib/api'
 
 interface User {
   user_id: string
@@ -15,6 +16,7 @@ interface User {
   qualification?: string
   experience?: string
   specialization?: string
+  profile_photo_url?: string
   is_active: boolean
   created_at: string
   last_login?: string
@@ -27,7 +29,8 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>
   logout: () => void
   signup: (userData: SignupData) => Promise<void>
-  updateProfile: (userData: User) => Promise<void>
+  updateProfile: (userData: Partial<User>) => Promise<void>
+  updateProfilePhoto: (file: File) => Promise<string>
   isAuthenticated: boolean
   isAdmin: boolean
 }
@@ -44,6 +47,7 @@ interface SignupData {
   qualification?: string
   experience?: string
   specialization?: string
+  profile_photo?: File
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -113,9 +117,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (userData: SignupData) => {
     try {
-      const headers: any = {
-        'Content-Type': 'application/json',
+      const formData = new FormData()
+      
+      // Append all fields to FormData
+      Object.entries(userData).forEach(([key, value]) => {
+        if (key !== 'profile_photo' && value !== undefined) {
+          formData.append(key, String(value))
+        }
+      })
+      
+      // Append profile photo if it exists
+      if (userData.profile_photo) {
+        formData.append('profile_photo', userData.profile_photo)
       }
+
+      const headers: any = {}
       
       // Include auth header if user is logged in (for admin context)
       if (token) {
@@ -125,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(userData),
+        body: formData, // Sending FormData instead of JSON
       })
 
       if (!response.ok) {
@@ -149,12 +165,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/login')
   }
 
-  const updateProfile = async (userData: User) => {
+  const updateProfile = async (userData: Partial<User>) => {
     try {
-      setUser(userData)
-      localStorage.setItem('auth_user', JSON.stringify(userData))
+      const updatedUser = await api.updateProfile(userData)
+      setUser(updatedUser)
+      localStorage.setItem('auth_user', JSON.stringify(updatedUser))
     } catch (error) {
       console.error('Profile update error:', error)
+      throw error
+    }
+  }
+
+  const updateProfilePhoto = async (file: File) => {
+    try {
+      const response = await api.updateProfilePhoto(file)
+      const photoUrl = response.profile_photo_url
+      
+      if (user) {
+        const updatedUser = { ...user, profile_photo_url: photoUrl }
+        setUser(updatedUser)
+        localStorage.setItem('auth_user', JSON.stringify(updatedUser))
+      }
+      
+      return photoUrl
+    } catch (error) {
+      console.error('Profile photo update error:', error)
       throw error
     }
   }
@@ -167,6 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     signup,
     updateProfile,
+    updateProfilePhoto,
     isAuthenticated: !!user && !!token,
     isAdmin: user?.role === 'admin'
   }

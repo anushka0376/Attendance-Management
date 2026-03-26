@@ -2,6 +2,7 @@
 import type React from "react"
 import { usePathname } from "next/navigation"
 import Sidebar from "@/components/layout/sidebar"
+import Topbar from "@/components/layout/topbar"
 
 export default function DashboardLayout({
   children,
@@ -17,8 +18,9 @@ export default function DashboardLayout({
       </aside>
       
       {/* Main Content */}
-      <div className="flex-1 md:ml-64">
-        <main className="p-6">
+      <div className="flex-1 md:ml-64 flex flex-col h-screen overflow-hidden">
+        <Topbar />
+        <main className="flex-1 overflow-y-auto p-6">
           <div key={pathname} className="w-full">
             {children}
           </div>

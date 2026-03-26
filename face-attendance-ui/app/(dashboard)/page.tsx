@@ -1,28 +1,55 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Users, CalendarCheck2, ScanFace, ScrollText } from "lucide-react"
+import { Users, CalendarCheck2, ScanFace, Layers, ArrowRight } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-
-const stats = [
-  { title: "Total Students", value: "1,284", icon: Users },
-  { title: "Attendance Today", value: "93%", icon: CalendarCheck2 },
-  { title: "Recognized Faces", value: "312", icon: ScanFace },
-  { title: "Logs", value: "8,423", icon: ScrollText },
-]
+import useSWR from "swr"
+import { api } from "@/lib/api"
+import Link from "next/link"
 
 export default function DashboardPage() {
+  const { data: statsData, isLoading } = useSWR('/api/stats', () => api.getStats(), {
+    refreshInterval: 30000 // Refresh every 30 seconds
+  })
+
+  const stats = [
+    { 
+        title: "Total Students", 
+        value: statsData?.total_students ?? "...", 
+        icon: Users,
+        description: "Enrolled in Supabase"
+    },
+    { 
+        title: "Active Batches", 
+        value: statsData?.total_batches ?? "...", 
+        icon: Layers,
+        description: "Year-based groups"
+    },
+    { 
+        title: "Attendance Today", 
+        value: statsData?.attendance_today ?? "...", 
+        icon: CalendarCheck2,
+        description: "Successfully marked"
+    },
+    { 
+        title: "System Status", 
+        value: "Online", 
+        icon: ScanFace,
+        description: "Face Recognition Ready"
+    },
+  ]
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">System Overview</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Welcome to SmartFaceAttendance! Here's an overview of your intelligent attendance system.
+            Cloud-connected Face Attendance Management (Supabase)
           </p>
         </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700">
           {new Date().toLocaleDateString('en-US', { 
             weekday: 'long', 
             year: 'numeric', 
@@ -43,18 +70,21 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             >
-              <Card className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-lg transition-shadow duration-200">
+              <Card className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-xl transition-all duration-300 group cursor-default">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <div>
-                    <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  <div className="space-y-1">
+                    <CardTitle className="text-[10px] uppercase tracking-widest font-bold text-gray-400">
                       {s.title}
                     </CardTitle>
-                    <div className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                      {s.value}
+                    <div className="text-3xl font-black text-gray-900 dark:text-white">
+                      {isLoading ? (
+                          <div className="h-8 w-16 bg-gray-100 dark:bg-gray-700 animate-pulse rounded"></div>
+                      ) : s.value}
                     </div>
+                    <p className="text-[10px] text-gray-500 font-medium">{s.description}</p>
                   </div>
-                  <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                    <Icon className="h-6 w-6 text-blue-500" />
+                  <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/40 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <Icon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                 </CardHeader>
               </Card>
@@ -63,76 +93,62 @@ export default function DashboardPage() {
         })}
       </section>
 
-      {/* Quick Actions */}
+      {/* Quick Actions & Recent Activity */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-              Quick Actions
+        <Card className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm col-span-1 lg:col-span-2">
+          <CardHeader className="border-b border-gray-100 dark:border-gray-700">
+            <CardTitle className="text-lg font-bold text-gray-900 dark:text-white">
+              Management Portal
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <button className="w-full flex items-center gap-3 p-3 text-left rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-              <ScanFace className="h-5 w-5" />
-              <span className="font-medium">Mark Attendance</span>
-            </button>
-            <button className="w-full flex items-center gap-3 p-3 text-left rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
-              <Users className="h-5 w-5" />
-              <span className="font-medium">Add New Student</span>
-            </button>
-            <button className="w-full flex items-center gap-3 p-3 text-left rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">
-              <ScrollText className="h-5 w-5" />
-              <span className="font-medium">View Records</span>
-            </button>
+          <CardContent className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Link href="/mark-attendance" className="group">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-lg shadow-blue-500/20 hover:scale-[1.02] transition-all">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                            <ScanFace className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <div className="font-bold underline-offset-4 group-hover:underline">Start Terminal</div>
+                            <div className="text-xs text-blue-100">Open Face Recognition</div>
+                        </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 opacity-50 group-hover:opacity-100 transform group-hover:translate-x-1 transition-all" />
+                </div>
+            </Link>
+
+            <Link href="/add-student" className="group">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/40 rounded-xl flex items-center justify-center">
+                            <Users className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div>
+                            <div className="font-bold text-gray-900 dark:text-white">Enroll Student</div>
+                            <div className="text-xs text-gray-500">Add to Cloud Database</div>
+                        </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-gray-300 group-hover:text-blue-500 transition-all" />
+                </div>
+            </Link>
           </CardContent>
         </Card>
 
-        <Card className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <Card className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-              Today's Summary
+            <CardTitle className="text-lg font-bold text-gray-900 dark:text-white">
+              System Context
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Present Today</span>
-                <span className="font-semibold text-green-600 dark:text-green-400">1,195</span>
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Supabase Region</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">AWS Mumbai (ap-south-1)</div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Absent Today</span>
-                <span className="font-semibold text-red-600 dark:text-red-400">89</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Attendance Rate</span>
-                <span className="font-semibold text-blue-600 dark:text-blue-400">93.1%</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-              Recent Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-gray-600 dark:text-gray-400">John Doe marked present</span>
-                <span className="text-xs text-gray-500 ml-auto">2m ago</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-gray-600 dark:text-gray-400">New student enrolled</span>
-                <span className="text-xs text-gray-500 ml-auto">5m ago</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span className="text-gray-600 dark:text-gray-400">System backup completed</span>
-                <span className="text-xs text-gray-500 ml-auto">10m ago</span>
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Storage Provider</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">Supabase Buckets</div>
               </div>
             </div>
           </CardContent>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,22 +8,31 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import CameraFeed, { type CameraFeedRef } from "@/components/camera/camera-feed"
 import { 
   User, 
   Mail, 
   Phone, 
   Building, 
-  IdCard, 
   GraduationCap, 
   Briefcase, 
-  Sparkles,
   Key,
   Save,
   AlertCircle,
   CheckCircle,
-  Loader2
+  Loader2,
+  Camera,
+  Upload
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { api } from '@/lib/api'
 
 interface ProfileFormData {
   full_name: string
@@ -43,25 +52,44 @@ interface PasswordFormData {
 }
 
 export default function ProfilePage() {
-  const { user, updateProfile } = useAuth()
+  const { user, updateProfile, updateProfilePhoto } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [passwordMessage, setPasswordMessage] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const cameraRef = useRef<CameraFeedRef>(null)
 
   // Profile form state
   const [profileData, setProfileData] = useState<ProfileFormData>({
-    full_name: user?.full_name || '',
-    email: user?.email || '',
-    phone_number: user?.phone_number || '',
-    department: user?.department || '',
-    employee_id: user?.employee_id || '',
-    qualification: user?.qualification || '',
-    experience: user?.experience || '',
-    specialization: user?.specialization || ''
+    full_name: '',
+    email: '',
+    phone_number: '',
+    department: '',
+    employee_id: '',
+    qualification: '',
+    experience: '',
+    specialization: ''
   })
+
+  // Sync profile data when user changes
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        full_name: user.full_name || '',
+        email: user.email || '',
+        phone_number: user.phone_number || '',
+        department: user.department || '',
+        employee_id: user.employee_id || '',
+        qualification: user.qualification || '',
+        experience: user.experience || '',
+        specialization: user.specialization || ''
+      })
+    }
+  }, [user])
 
   // Password form state
   const [passwordData, setPasswordData] = useState<PasswordFormData>({
@@ -69,6 +97,46 @@ export default function ProfilePage() {
     new_password: '',
     confirm_password: ''
   })
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    setError('')
+    setMessage('')
+    
+    try {
+      await updateProfilePhoto(file)
+      setMessage('Profile photo updated!')
+      setTimeout(() => setMessage(''), 3000)
+    } catch (err: any) {
+      setError(err.message || 'Failed to update photo')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleCapture = async () => {
+    if (!cameraRef.current) return
+
+    setIsUploading(true)
+    setError('')
+    setMessage('')
+    
+    try {
+      const blob = await cameraRef.current.capture()
+      const file = new File([blob], `profile_${Date.now()}.jpg`, { type: 'image/jpeg' })
+      await updateProfilePhoto(file)
+      setMessage('Profile photo captured and updated!')
+      setIsCameraOpen(false)
+      setTimeout(() => setMessage(''), 3000)
+    } catch (err: any) {
+      setError(err.message || 'Failed to capture photo')
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -91,23 +159,7 @@ export default function ProfilePage() {
         return
       }
 
-      const response = await fetch('http://127.0.0.1:8000/api/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(updates)
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to update profile')
-      }
-
-      const updatedUser = await response.json()
-      await updateProfile(updatedUser)
-      
+      await updateProfile(updates)
       setMessage('Profile updated successfully!')
       
       // Clear message after 3 seconds
@@ -135,19 +187,7 @@ export default function ProfilePage() {
         throw new Error('New password must be at least 6 characters')
       }
 
-      const response = await fetch('http://127.0.0.1:8000/api/profile/password', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(passwordData)
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to change password')
-      }
+      await api.updatePassword(passwordData)
 
       setPasswordMessage('Password changed successfully!')
       setPasswordData({
@@ -190,31 +230,126 @@ export default function ProfilePage() {
       {/* Profile Overview Card */}
       <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border-blue-200 dark:border-blue-800">
         <CardContent className="p-6">
-          <div className="flex items-center gap-4">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl ${
-              user?.role === 'admin' ? 'bg-red-500' : 'bg-blue-500'
-            }`}>
-              {user?.full_name ? getUserInitials(user.full_name) : user?.username?.charAt(0).toUpperCase() || 'U'}
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            {/* Profile Photo Section */}
+            <div className="relative group">
+              <div className={`w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-2xl overflow-hidden shadow-lg border-2 border-white dark:border-gray-800 transition-transform duration-200 group-hover:scale-105 ${
+                user?.role === 'admin' ? 'bg-red-500' : 'bg-blue-500'
+              }`}>
+                {user?.profile_photo_url ? (
+                  <img 
+                    src={user.profile_photo_url} 
+                    alt={user.full_name} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  user?.full_name ? getUserInitials(user.full_name) : user?.username?.charAt(0).toUpperCase() || 'U'
+                )}
+                
+                {/* Overlay on hover */}
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="flex flex-col gap-2">
+                    <label 
+                      htmlFor="photo-upload" 
+                      className="cursor-pointer bg-white/20 hover:bg-white/40 p-2 rounded-full transition-colors"
+                      title="Upload Photo"
+                    >
+                      <Upload className="h-5 w-5 text-white" />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Small Camera Icon Button (Always visible on hover or mobile) */}
+              <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    size="icon" 
+                    className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-md border-2 border-white dark:border-gray-800 z-10"
+                    title="Take Photo"
+                  >
+                    <Camera className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Capture Profile Photo</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col items-center gap-4 py-4">
+                    <div className="w-full max-w-sm overflow-hidden rounded-lg border-2 border-blue-500 shadow-inner">
+                      <CameraFeed ref={cameraRef} />
+                    </div>
+                    <div className="flex gap-3 w-full">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setIsCameraOpen(false)}
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleCapture}
+                        disabled={isUploading}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        {isUploading ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Camera className="h-4 w-4 mr-2" />
+                        )}
+                        Capture
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
+              {isUploading && !isCameraOpen && (
+                <div className="absolute inset-0 bg-white/60 dark:bg-black/60 rounded-full flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                </div>
+              )}
+              
+              <Input
+                id="photo-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoChange}
+                disabled={isUploading}
+              />
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-foreground">
+
+            <div className="flex-1 text-center md:text-left">
+              <h3 className="text-2xl font-bold text-foreground">
                 {user?.full_name || user?.username || 'Unknown User'}
               </h3>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground flex items-center justify-center md:justify-start gap-2 mt-1">
+                <Mail className="h-4 w-4" />
                 {user?.email || 'No email provided'}
               </p>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant={user?.role === 'admin' ? 'destructive' : 'default'}>
+              <div className="flex items-center justify-center md:justify-start gap-2 mt-4">
+                <Badge variant={user?.role === 'admin' ? 'destructive' : 'default'} className="px-3 py-1">
                   {user?.role === 'admin' ? '👑 Administrator' : '👨‍🏫 Teacher'}
                 </Badge>
                 {user?.department && (
-                  <Badge variant="outline">{user.department}</Badge>
+                  <Badge variant="outline" className="px-3 py-1 bg-white/50 dark:bg-black/50">
+                    <Building className="h-3 w-3 mr-1" />
+                    {user.department}
+                  </Badge>
                 )}
               </div>
             </div>
-            <div className="text-right text-sm text-muted-foreground">
-              <p>User ID</p>
-              <p className="font-mono text-xs">{user?.username || 'N/A'}</p>
+            
+            <div className="text-right hidden md:block border-l pl-6 border-blue-200 dark:border-blue-800">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">User ID</p>
+              <p className="font-mono text-base font-bold text-foreground mt-1">{user?.username || 'N/A'}</p>
+              {user?.employee_id && (
+                <>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mt-3">Employee ID</p>
+                  <p className="font-mono text-base font-bold text-foreground mt-1">{user.employee_id}</p>
+                </>
+              )}
             </div>
           </div>
         </CardContent>
