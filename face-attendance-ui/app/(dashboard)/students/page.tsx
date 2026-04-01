@@ -20,8 +20,10 @@ interface Student {
   roll_no: string
   batch_id: string
   department?: string
+  group_name?: string
   email?: string
   created_at?: string
+  batches?: { name: string }
 }
 
 interface Batch {
@@ -39,6 +41,11 @@ const StudentsPage = () => {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedBatchId, setSelectedBatchId] = useState<string>('all')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
+  const [selectedGroup, setSelectedGroup] = useState<string>('all')
+  
+  const uniqueDepartments = Array.from(new Set(students.map(s => s.department).filter(Boolean))) as string[]
+  const uniqueGroups = Array.from(new Set(students.map(s => s.group_name).filter(Boolean))) as string[]
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -51,13 +58,25 @@ const StudentsPage = () => {
     email: ''
   })
 
+  // Edit Student State
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null)
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    roll_no: '',
+    batch_id: '',
+    department: '',
+    group_name: '',
+    email: ''
+  })
+
   // Fetch batches and students
-  const fetchData = async () => {
+  const fetchData = async (batchId: string = 'all') => {
     try {
       setLoading(true)
       const [batchesRes, studentsRes] = await Promise.all([
         api.getBatches(),
-        api.getStudents()
+        api.getStudents(batchId)
       ])
       setBatches(batchesRes.batches || [])
       setStudents(studentsRes.students || [])
@@ -82,6 +101,14 @@ const StudentsPage = () => {
       filtered = filtered.filter(s => s.batch_id === selectedBatchId)
     }
     
+    if (selectedDepartment !== 'all') {
+      filtered = filtered.filter(s => s.department === selectedDepartment)
+    }
+
+    if (selectedGroup !== 'all') {
+      filtered = filtered.filter(s => s.group_name === selectedGroup)
+    }
+    
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase()
       filtered = filtered.filter(s =>
@@ -91,11 +118,46 @@ const StudentsPage = () => {
     }
     
     setFilteredStudents(filtered)
-  }, [searchTerm, selectedBatchId, students])
+  }, [searchTerm, selectedBatchId, selectedDepartment, selectedGroup, students])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setEditFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleEditClick = (student: Student) => {
+    setEditingStudent(student)
+    setEditFormData({
+      name: student.name,
+      roll_no: student.roll_no,
+      batch_id: student.batch_id,
+      department: student.department || '',
+      group_name: student.group_name || '',
+      email: student.email || ''
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateStudent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingStudent) return
+    
+    setIsSubmitting(true)
+    try {
+      await api.updateStudent(editingStudent.id, editFormData)
+      toast.success('Student updated successfully!')
+      setIsEditDialogOpen(false)
+      fetchData()
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update student')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleCreateStudent = async (e: React.FormEvent) => {
@@ -149,13 +211,13 @@ const StudentsPage = () => {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card className="md:col-span-2">
           <CardContent className="pt-6">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name or roll number..."
+                placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -169,8 +231,8 @@ const StudentsPage = () => {
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
-                <SelectTrigger className="border-none shadow-none focus:ring-0">
-                  <SelectValue placeholder="Filter by Batch" />
+                <SelectTrigger className="border-none shadow-none focus:ring-0 px-0">
+                  <SelectValue placeholder="Batch" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Batches</SelectItem>
@@ -185,18 +247,57 @@ const StudentsPage = () => {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold">{filteredStudents.length}</p>
-                <p className="text-xs text-muted-foreground">Students Shown</p>
-              </div>
-              <Button variant="ghost" size="sm" onClick={fetchData}>
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                <SelectTrigger className="border-none shadow-none focus:ring-0 px-0">
+                  <SelectValue placeholder="Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Depts</SelectItem>
+                  {uniqueDepartments.map(dept => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                <SelectTrigger className="border-none shadow-none focus:ring-0 px-0">
+                  <SelectValue placeholder="Group" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Groups</SelectItem>
+                  {uniqueGroups.map(group => (
+                    <SelectItem key={group} value={group}>{group}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card className="bg-muted/30 border-dashed">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold text-primary">{filteredStudents.length}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Students Found</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => fetchData()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -228,6 +329,7 @@ const StudentsPage = () => {
                     <TableHead>Roll Number</TableHead>
                     <TableHead>Batch (Year Group)</TableHead>
                     <TableHead>Department</TableHead>
+                    <TableHead>Group</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -249,12 +351,26 @@ const StudentsPage = () => {
                         <Badge variant="outline" className="font-mono">{student.roll_no}</Badge>
                       </TableCell>
                       <TableCell>
-                        {batches.find(b => b.id === student.batch_id)?.name || 'Unknown Batch'}
+                        {student.batches?.name || (
+                            <Badge variant="destructive" className="text-[10px]">No Batch</Badge>
+                        )}
                       </TableCell>
                       <TableCell>{student.department || 'N/A'}</TableCell>
+                      <TableCell>
+                        {student.group_name ? (
+                          <Badge variant="secondary">{student.group_name}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No Group</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                           <Button variant="ghost" size="icon" className="h-8 w-8">
+                           <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => handleEditClick(student)}
+                            >
                             <Edit className="h-4 w-4 text-muted-foreground" />
                           </Button>
                           {user?.role === 'admin' && (
@@ -328,6 +444,68 @@ const StudentsPage = () => {
               <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? 'Creating...' : 'Create Student'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Student Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Student Details</DialogTitle>
+            <DialogDescription>
+              Update student information in the database.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleUpdateStudent} className="space-y-4 pt-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit_name">Full Name *</Label>
+              <Input id="edit_name" name="name" value={editFormData.name} onChange={handleEditInputChange} required />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="edit_roll_no">Roll Number *</Label>
+                    <Input id="edit_roll_no" name="roll_no" value={editFormData.roll_no} onChange={handleEditInputChange} required />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="edit_batch_id">Batch *</Label>
+                    <Select value={editFormData.batch_id} onValueChange={(val) => setEditFormData(prev => ({...prev, batch_id: val}))}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select Batch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {batches.map(batch => (
+                                <SelectItem key={batch.id} value={batch.id}>{batch.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit_department">Department</Label>
+                <Input id="edit_department" name="department" value={editFormData.department} onChange={handleEditInputChange} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit_group">Group</Label>
+                <Input id="edit_group" name="group_name" value={editFormData.group_name} onChange={handleEditInputChange} />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit_email">Email Address</Label>
+              <Input id="edit_email" name="email" type="email" value={editFormData.email} onChange={handleEditInputChange} />
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Updating...' : 'Save Changes'}
               </Button>
             </div>
           </form>

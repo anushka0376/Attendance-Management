@@ -54,7 +54,7 @@ export default function HomePage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-6 md:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-3">
         <Card className="border-none bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-xl shadow-blue-500/20 overflow-hidden relative group">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
           <CardHeader className="pb-2">
@@ -94,21 +94,6 @@ export default function HomePage() {
               {studentCount > 0 ? Math.round((todayAttendance / studentCount) * 100) : 0}%
             </div>
             <p className="text-xs text-gray-500 mt-1">Status: {studentCount > 0 && (todayAttendance / studentCount) > 0.8 ? 'Excellent' : 'Normal'}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">AI Status</CardTitle>
-            <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center">
-                <Camera className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold text-gray-900 dark:text-white truncate">
-              {systemStatus?.face_recognition === "Available" ? "Precision Engine" : "Basic Mode"}
-            </div>
-            <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-tighter">Confidence Threshold: 0.6</p>
           </CardContent>
         </Card>
       </div>

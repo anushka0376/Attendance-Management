@@ -52,7 +52,7 @@ interface SignupData {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const API_BASE_URL = 'http://127.0.0.1:8000'
+const API_BASE_URL = 'http://localhost:8000'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -60,23 +60,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  // Initialize auth state from localStorage
+  // Initialize auth state from localStorage AND refresh from server
   useEffect(() => {
-    const storedToken = localStorage.getItem('auth_token')
-    const storedUser = localStorage.getItem('auth_user')
+    const checkSession = async () => {
+      const storedToken = localStorage.getItem('auth_token')
+      const storedUser = localStorage.getItem('auth_user')
 
-    if (storedToken && storedUser) {
-      try {
+      if (storedToken) {
         setToken(storedToken)
-        setUser(JSON.parse(storedUser))
-      } catch (error) {
-        console.error('Error parsing stored auth data:', error)
-        localStorage.removeItem('auth_token')
-        localStorage.removeItem('auth_user')
+        if (storedUser) {
+          try {
+            setUser(JSON.parse(storedUser))
+          } catch (e) {
+            console.error('Error parsing stored user:', e)
+          }
+        }
+
+        // 🔄 Critical: Refresh profile from server to resolve "Unknown User"
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${storedToken}`,
+            },
+          })
+          
+          if (response.ok) {
+            const userData = await response.json()
+            setUser(userData)
+            localStorage.setItem('auth_user', JSON.stringify(userData))
+          } else if (response.status === 401) {
+            // Token expired
+            logout()
+          }
+        } catch (error) {
+          console.error('Session refresh failed:', error)
+          // Keep the local user if fetch fails (offline mode)
+        }
       }
+      setIsLoading(false)
     }
 
-    setIsLoading(false)
+    checkSession()
   }, [])
 
   const login = async (username: string, password: string) => {

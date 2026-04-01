@@ -17,6 +17,7 @@ export default function AddStudentPage() {
   const [startYear, setStartYear] = useState(new Date().getFullYear().toString())
   const [endYear, setEndYear] = useState((new Date().getFullYear() + 4).toString())
   const [departmentName, setDepartmentName] = useState("")
+  const [groupName, setGroupName] = useState("")
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [capturedImages, setCapturedImages] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
@@ -102,51 +103,60 @@ export default function AddStudentPage() {
     }
 
     const allImages = [...selectedFiles, ...capturedImages]
+    console.log("📝 Preparing enrollment for:", { fullName, rollNumber, departmentName, imageCount: allImages.length })
+
+    // Non-blocking warning for images
     if (allImages.length < 3) {
       toast({
-        title: "Incomplete facial data",
-        description: "Please capture or select at least 3 images (max 5) for reliable face recognition.",
-        variant: "destructive"
+        title: "Limited facial data",
+        description: "Enrolling without at least 3 images may result in poor recognition accuracy.",
       })
-      return
     }
 
     setLoading(true)
     try {
-      // 1. Find or create batch
-      let targetBatchId = ""
-      const existingBatch = batches.find((b: any) => 
-        b.start_year === parseInt(startYear) && b.end_year === parseInt(endYear)
-      )
+      console.log("📦 Creating/Resolving batch for department:", departmentName)
+      const batchRes = await api.createBatch({
+        department: departmentName,
+        start_year: parseInt(startYear),
+        end_year: parseInt(endYear)
+      })
+      
+      if (!batchRes?.batch?.id) {
+        throw new Error("Failed to resolve batch. Please check your department and years.")
+      }
+      
+      const targetBatchId = batchRes.batch.id
+      console.log("✅ Using Batch ID:", targetBatchId)
 
-      if (existingBatch) {
-        targetBatchId = existingBatch.id
-      } else {
-        const newBatch = await api.createBatch({
-          name: `${startYear}-${endYear}`,
-          start_year: parseInt(startYear),
-          end_year: parseInt(endYear),
-          degree_duration: parseInt(endYear) - parseInt(startYear)
-        })
-        targetBatchId = newBatch.id
-        mutate('/api/batches') // Refresh batches cache
+      if (batchRes.is_new) {
+        mutate('/api/batches')
       }
 
       // 2. Add student to database
-      const response = await api.addStudent({
+      const studentPayload = {
         name: fullName,
         roll_no: rollNumber,
         batch_id: targetBatchId,
-        department: departmentName
-      })
+        department: departmentName,
+        group_name: groupName || undefined
+      }
+      
+      console.log("👤 Sending student payload:", studentPayload)
+      const response = await api.addStudent(studentPayload)
+      console.log("🎉 Student creation response:", response)
 
       // 3. Upload images if selected or captured
       if (allImages.length > 0 && response.student?.id) {
         await api.uploadStudentImages(response.student.id, allImages)
         toast({
           title: "Registration Success",
-          description: `${fullName} added to batch ${startYear}-${endYear} with cloud-synced facial data.`,
+          description: `${fullName} added to standardized batch with cloud-synced facial data.`,
         })
+        
+        // Immediate data refresh to show student in list
+        mutate('/api/students')
+        mutate('/api/batches')
       } else {
         toast({
           title: "Student Added",
@@ -158,6 +168,7 @@ export default function AddStudentPage() {
       setFullName("")
       setRollNumber("")
       setDepartmentName("")
+      setGroupName("")
       setSelectedFiles([])
       setCapturedImages([])
       setCameraActive(false)
@@ -270,24 +281,37 @@ export default function AddStudentPage() {
                 </div>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Department *
-                </label>
-                <Select value={departmentName} onValueChange={setDepartmentName}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CSE">Computer Science Engineering</SelectItem>
-                    <SelectItem value="IT">Information Technology</SelectItem>
-                    <SelectItem value="ECE">Electronics & Communication</SelectItem>
-                    <SelectItem value="EEE">Electrical & Electronics</SelectItem>
-                    <SelectItem value="MECH">Mechanical Engineering</SelectItem>
-                    <SelectItem value="CIVIL">Civil Engineering</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Department *
+                  </label>
+                  <Select value={departmentName} onValueChange={setDepartmentName}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select dept" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CSE">Computer Science Engineering</SelectItem>
+                      <SelectItem value="IT">Information Technology</SelectItem>
+                      <SelectItem value="ECE">Electronics & Communication</SelectItem>
+                      <SelectItem value="EEE">Electrical & Electronics</SelectItem>
+                      <SelectItem value="MECH">Mechanical Engineering</SelectItem>
+                      <SelectItem value="CIVIL">Civil Engineering</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Group (e.g., G15)
+                  </label>
+                  <Input
+                    placeholder="Optional Group"
+                    value={groupName}
+                    onChange={(e) => setGroupName(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

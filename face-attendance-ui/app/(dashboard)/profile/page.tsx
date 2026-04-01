@@ -62,6 +62,18 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState('')
   const [isCameraOpen, setIsCameraOpen] = useState(false)
   const cameraRef = useRef<CameraFeedRef>(null)
+  const [showOtherDepartment, setShowOtherDepartment] = useState(false)
+  const [otherDepartmentInput, setOtherDepartmentInput] = useState('')
+
+  const DEPARTMENT_OPTIONS = [
+    "Computer Science Engineering",
+    "Information Technology",
+    "Electronics & Communication",
+    "Electrical & Electronics",
+    "Mechanical Engineering",
+    "Civil Engineering",
+    "Other"
+  ]
 
   // Profile form state
   const [profileData, setProfileData] = useState<ProfileFormData>({
@@ -77,17 +89,28 @@ export default function ProfilePage() {
 
   // Sync profile data when user changes
   useEffect(() => {
-    if (user) {
+    if (user && !isLoading) {
+      console.log("Syncing profile data from user:", user);
+      
+      const isCustomDept = user.department && !DEPARTMENT_OPTIONS.includes(user.department);
+      
       setProfileData({
         full_name: user.full_name || '',
         email: user.email || '',
         phone_number: user.phone_number || '',
-        department: user.department || '',
+        department: isCustomDept ? 'Other' : (user.department || ''),
         employee_id: user.employee_id || '',
         qualification: user.qualification || '',
         experience: user.experience || '',
         specialization: user.specialization || ''
       })
+      
+      if (isCustomDept) {
+        setShowOtherDepartment(true);
+        setOtherDepartmentInput(user.department || '');
+      } else {
+        setShowOtherDepartment(user.department === 'Other');
+      }
     }
   }, [user])
 
@@ -145,18 +168,47 @@ export default function ProfilePage() {
     setMessage('')
 
     try {
+      // Determine final department value
+      const finalDepartment = profileData.department === 'Other' 
+        ? otherDepartmentInput.trim() 
+        : profileData.department.trim();
+
+      if (profileData.department === 'Other' && !finalDepartment) {
+        setError('Please specify your department');
+        setIsLoading(false);
+        return;
+      }
+
       // Filter out unchanged fields
-      const updates: Partial<ProfileFormData> = {}
-      Object.entries(profileData).forEach(([key, value]) => {
-        const originalValue = String(user?.[key as keyof typeof user] || '')
-        if (value.trim() !== originalValue.trim()) {
-          updates[key as keyof ProfileFormData] = value.trim()
+      const updates: any = {}
+      
+      const checkUpdate = (key: string, newValue: string) => {
+        const originalValue = String(user?.[key as keyof typeof user] || '').trim();
+        if (newValue.trim() !== originalValue) {
+          updates[key] = newValue.trim();
         }
-      })
+      }
+
+      checkUpdate('full_name', profileData.full_name);
+      checkUpdate('email', profileData.email);
+      checkUpdate('phone_number', profileData.phone_number);
+      checkUpdate('employee_id', profileData.employee_id);
+      checkUpdate('qualification', profileData.qualification);
+      checkUpdate('experience', profileData.experience);
+      checkUpdate('specialization', profileData.specialization);
+
+      // Special handling for department
+      const originalDept = String(user?.department || '').trim();
+      if (finalDepartment !== originalDept) {
+        updates.department = finalDepartment;
+      }
+
+      console.log("Calculated updates:", updates);
 
       if (Object.keys(updates).length === 0) {
-        setError('No changes detected')
-        return
+        setError('No changes detected');
+        setIsLoading(false);
+        return;
       }
 
       await updateProfile(updates)
@@ -166,6 +218,7 @@ export default function ProfilePage() {
       setTimeout(() => setMessage(''), 3000)
 
     } catch (err: any) {
+      console.error("Update error detail:", err);
       setError(err.message || 'Failed to update profile')
     } finally {
       setIsLoading(false)
@@ -449,14 +502,35 @@ export default function ProfilePage() {
                     
                     <div className="space-y-2">
                       <Label htmlFor="department">Department</Label>
-                      <Input
+                      <select
                         id="department"
                         value={profileData.department}
-                        onChange={(e) => setProfileData(prev => ({ ...prev, department: e.target.value }))}
-                        placeholder="Enter your department"
-                        className="text-foreground"
-                      />
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setProfileData(prev => ({ ...prev, department: val }));
+                          setShowOtherDepartment(val === 'Other');
+                        }}
+                        className="w-full h-10 px-3 border border-input bg-background text-foreground rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      >
+                        <option value="">Select Department</option>
+                        {DEPARTMENT_OPTIONS.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
                     </div>
+
+                    {showOtherDepartment && (
+                      <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                        <Label htmlFor="other_department">Specify Department</Label>
+                        <Input
+                          id="other_department"
+                          value={otherDepartmentInput}
+                          onChange={(e) => setOtherDepartmentInput(e.target.value)}
+                          placeholder="Type your department name"
+                          className="text-foreground border-blue-200 focus:border-blue-500"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
