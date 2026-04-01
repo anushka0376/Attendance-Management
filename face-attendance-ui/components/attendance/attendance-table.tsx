@@ -5,13 +5,13 @@ import { api } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
 
-export default function AttendanceTable({ batchId = "all" }: { batchId?: string }) {
+export default function AttendanceTable({ batchId = "all", groupName = "all" }: { batchId?: string, groupName?: string }) {
   const { toast } = useToast()
   
-  // Fetch students (filtered by batch if provided)
+  // Fetch students (filtered by batch or group if provided)
   const { data: studentsData, isLoading, mutate: mutateStudents } = useSWR(
-    `/api/students?batch_id=${batchId}`, 
-    () => api.getStudents(batchId === "all" ? undefined : batchId),
+    `/api/students?batch_id=${batchId}&group_name=${groupName}`, 
+    () => api.getStudents(batchId === "all" ? undefined : batchId, groupName === "all" ? undefined : groupName),
     { keepPreviousData: true }
   )
 
@@ -36,7 +36,7 @@ export default function AttendanceTable({ batchId = "all" }: { batchId?: string 
   const mark = async (studentId: string, status: "Present" | "Absent") => {
     try {
       if (status === "Present") {
-        await api.markAttendance([studentId])
+        await api.markAttendance({ student_ids: [studentId] })
         toast({ title: "Marked Present", description: "Attendance updated in Supabase" })
       } else {
         // Use markAttendance with a specialized status if your API supports it, 

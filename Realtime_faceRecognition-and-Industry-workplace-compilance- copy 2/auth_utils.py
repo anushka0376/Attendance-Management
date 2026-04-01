@@ -67,6 +67,42 @@ class UpdatePasswordRequest(BaseModel):
 
 # Utility Functions
 
+async def enrich_profile(profile: Dict, user_id: str, role: Optional[str] = None) -> Dict:
+    """Consolidated logic to enrich profile from role-specific tables (like teachers)"""
+    print(f"DEBUG: Enriching profile for {user_id}. Base profile has keys: {list(profile.keys())}")
+    final_role = role or profile.get("role", "teacher")
+    
+    # 1. Base enrichment
+    enriched = {
+        **profile,
+        "user_id": str(user_id),
+        "role": final_role
+    }
+    
+    # 2. If teacher, merge with results from 'teachers' table
+    if final_role == 'teacher':
+        try:
+            print(f"DEBUG: Fetching from teachers table for {user_id}...")
+            t_res = supabase.table("teachers").select("*").eq("id", user_id).execute()
+            if t_res.data:
+                teacher_data = t_res.data[0]
+                print(f"DEBUG: Found teacher data: {list(teacher_data.keys())}")
+                if teacher_data.get("department"):
+                    print(f"DEBUG: Teacher has department: {teacher_data.get('department')}")
+                # Merge: teachers record takes precedence for details
+                enriched.update(teacher_data)
+            else:
+                print(f"DEBUG: No data found in teachers table for {user_id}")
+        except Exception as e:
+            print(f"DEBUG: Enrichment ERROR: {e}")
+            
+    # 3. Standardize photo field and other keys
+    photo_url = enriched.get("profile_photo_url") or enriched.get("avatar_url")
+    enriched["profile_photo_url"] = photo_url
+    
+    print(f"DEBUG: Final enriched profile department: {enriched.get('department')}")
+    return enriched
+
 async def authenticate_user(email_or_username: str, password: str) -> Optional[Dict]:
     """Authenticate via Supabase Auth and check normalized profiles table"""
     try:
@@ -74,47 +110,33 @@ async def authenticate_user(email_or_username: str, password: str) -> Optional[D
         
         # 1. Handle Username-to-Email lookup if needed
         if "@" not in email_or_username:
-            # Check profiles table for this username
-            p_res = supabase.table("profiles").select("email").eq("username", email_or_username).execute()
+            print(f"🔍 Looking up email for username: {email_or_username}")
+            p_res = supabase.table("profiles").select("email").ilike("username", email_or_username).execute()
             if p_res.data:
                 email = p_res.data[0]["email"]
+            else:
+                if "@" not in email: return None
         
-        # 2. Sign in via Supabase Auth
-        response = supabase.auth.sign_in_with_password({
-            "email": email,
-            "password": password
-        })
+        print(f"🔐 Attempting auth for: {email}")
+        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
         
         if response.user:
             user_id = response.user.id
-            
-            # Fetch consolidated profile
             profile_res = supabase.table("profiles").select("*").eq("id", user_id).execute()
             if profile_res.data:
-                profile = profile_res.data[0]
+                profile_raw = profile_res.data[0]
+                # ENRICH!
+                profile = await enrich_profile(profile_raw, user_id)
+                
                 return {
                     "access_token": response.session.access_token,
                     "token_type": "bearer",
-                    "user": {
-                        "user_id": str(user_id),
-                        "username": profile.get("username"),
-                        "email": response.user.email,
-                        "full_name": profile.get("full_name"),
-                        "role": profile.get("role", "teacher"),
-                        "department": profile.get("department"),
-                        "phone_number": profile.get("phone_number"),
-                        "employee_id": profile.get("employee_id"),
-                        "qualification": profile.get("qualification"),
-                        "experience": profile.get("experience"),
-                        "specialization": profile.get("specialization"),
-                        "profile_photo_url": profile.get("avatar_url"), # Unified field
-                        "created_at": profile.get("created_at")
-                    }
+                    "user": profile
                 }
                 
         return None
     except Exception as e:
-        print(f"Auth error: {e}")
+        print(f"❌ Auth error for {email_or_username}: {str(e)}")
         return None
 
 async def upload_to_supabase(file_content: bytes, filename: str, bucket: str, folder: str = "public") -> Optional[str]:
@@ -232,23 +254,13 @@ async def create_user_in_db(
         raise HTTPException(status_code=400, detail=str(e))
 
 async def get_user_by_id(user_id: str, role: str) -> Dict:
-    """Fetch full user profile from database by ID and role"""
-    table = "admins" if role == "admin" else "teachers"
-    res = supabase.table(table).select("*").eq("id", user_id).execute()
-    if res.data:
-        profile = res.data[0]
-        # Fetch email from auth.users (via get_user)
-        try:
-            # Note: supabase.auth.admin.get_user_by_id(user_id) requires service role
-            # For simplicity, we just return what's in the table + hardcoded email if missing
-            return {
-                **profile,
-                "user_id": str(user_id),
-                "role": role
-            }
-        except:
-            return {**profile, "user_id": str(user_id), "role": role}
-    raise HTTPException(status_code=404, detail="User not found")
+    """Fetch full user profile from unified profiles or role-specific table"""
+    res = supabase.table("profiles").select("*").eq("id", user_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    profile_raw = res.data[0]
+    return await enrich_profile(profile_raw, user_id, role)
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict:
     """Get current user via Supabase JWT and profiles lookup"""
@@ -260,16 +272,15 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         
         user_id = user_res.user.id
         
-        # Consolidated lookup in profiles
+        # Consolidated lookup
         profile_res = supabase.table("profiles").select("*").eq("id", user_id).execute()
         if profile_res.data:
-            profile = profile_res.data[0]
-            return {
-                **profile,
-                "user_id": str(user_id),
-                "email": user_res.user.email,
-                "profile_photo_url": profile.get("avatar_url") # Map to the expected UI field
-            }
+            profile_raw = profile_res.data[0]
+            # ENRICH!
+            profile = await enrich_profile(profile_raw, user_id)
+            profile["access_token"] = token
+            profile["email"] = user_res.user.email # Ensure fresh email from auth
+            return profile
             
         raise HTTPException(status_code=404, detail="User profile not found")
     except Exception as e:
@@ -282,18 +293,21 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 def user_to_response(user: Dict) -> UserResponse:
+    # Handle both database naming (avatar_url) and API naming (profile_photo_url)
+    photo_url = user.get("profile_photo_url") or user.get("avatar_url")
+    
     return UserResponse(
         user_id=user["user_id"],
-        username=user.get("username", user["email"]),
-        email=user["email"],
-        full_name=user["full_name"],
-        role=user["role"],
+        username=user.get("username") or user.get("email") or "user",
+        email=user.get("email") or "no-email@example.com",
+        full_name=user.get("full_name") or "Unknown User",
+        role=user.get("role") or "teacher",
         department=user.get("department"),
         phone_number=user.get("phone_number"),
         employee_id=user.get("employee_id"),
         qualification=user.get("qualification"),
         experience=user.get("experience"),
         specialization=user.get("specialization"),
-        profile_photo_url=user.get("profile_photo_url"),
+        profile_photo_url=photo_url,
         created_at=str(user.get("created_at", ""))
     )

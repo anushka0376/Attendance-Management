@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Layers, Calendar, Trash2, RefreshCw } from "lucide-react"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function BatchesPage() {
   const { data: batchesData, isLoading } = useSWR('/api/batches', () => api.getBatches())
@@ -20,28 +21,69 @@ export default function BatchesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   
   const [formData, setFormData] = useState({
-    name: '',
-    start_year: new Date().getFullYear(),
-    end_year: new Date().getFullYear() + 4
+    department: '',
+    start_year: new Date().getFullYear().toString(),
+    end_year: (new Date().getFullYear() + 4).toString()
   })
 
   const handleCreateBatch = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    toast.info("Starting batch creation...")
+    
+    const sYear = parseInt(formData.start_year)
+    const eYear = parseInt(formData.end_year)
+    
+    if (!formData.department || isNaN(sYear) || isNaN(eYear)) {
+      toast.error("Please fill all required fields (Department, Start Year, End Year)")
+      setIsSubmitting(false)
+      return
+    }
+
+    const payload = {
+      name: "",
+      department: formData.department,
+      start_year: sYear,
+      end_year: eYear
+    }
+    
+    console.log("🔥 BATCH_SUBMIT_DEBUG:", JSON.stringify(payload, null, 2))
+    toast.info(`Preparing Payload: ${JSON.stringify(payload)}`)
+    
+    console.log("🚀 Sending Batch Payload:", payload)
+
     try {
-      await api.createBatch(formData)
+      const response = await api.createBatch(payload)
+      console.log("✅ Batch creation response:", response)
+      
       toast.success("Batch created successfully!")
       setIsAddDialogOpen(false)
-      mutate('/api/batches')
+      
+      // Clear form
       setFormData({ 
-        name: '', 
-        start_year: new Date().getFullYear(), 
-        end_year: new Date().getFullYear() + 4 
+        department: '', 
+        start_year: new Date().getFullYear().toString(), 
+        end_year: (new Date().getFullYear() + 4).toString() 
       })
+
+      // Refresh data
+      await mutate('/api/batches')
     } catch (error: any) {
-      toast.error(error.message || "Failed to create batch")
+      console.error("❌ Batch creation failed:", error)
+      toast.error(error.message || "Failed to create batch. Check console for details.")
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteBatch = async (batchId: string) => {
+    if (!confirm('Are you sure you want to delete this batch?')) return;
+    try {
+      await api.deleteBatch(batchId);
+      toast.success('Batch deleted successfully!');
+      await mutate('/api/batches');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete batch');
     }
   }
 
@@ -95,7 +137,12 @@ export default function BatchesPage() {
                     </Badge>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500/50 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
+                    <Button 
+                      onClick={() => handleDeleteBatch(batch.id)}
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-red-500/50 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
                         <Trash2 className="h-4 w-4" />
                     </Button>
                 </div>
@@ -115,14 +162,21 @@ export default function BatchesPage() {
           </DialogHeader>
           <form onSubmit={handleCreateBatch} className="space-y-4 pt-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Batch Identifier (e.g. B.Tech-CSE)</Label>
-              <Input 
-                id="name" 
-                placeholder="Computer Science 2023"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                required 
-              />
+              <Label htmlFor="dept">Department</Label>
+              <Select value={formData.department} onValueChange={(val) => setFormData({...formData, department: val})}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Computer Science Engineering">Computer Science Engineering</SelectItem>
+                  <SelectItem value="Information Technology">Information Technology</SelectItem>
+                  <SelectItem value="Electronics & Communication">Electronics & Communication</SelectItem>
+                  <SelectItem value="Electrical & Electronics">Electrical & Electronics</SelectItem>
+                  <SelectItem value="Mechanical Engineering">Mechanical Engineering</SelectItem>
+                  <SelectItem value="Civil Engineering">Civil Engineering</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -131,7 +185,7 @@ export default function BatchesPage() {
                   id="start" 
                   type="number"
                   value={formData.start_year}
-                  onChange={(e) => setFormData({...formData, start_year: parseInt(e.target.value)})}
+                  onChange={(e) => setFormData({...formData, start_year: e.target.value})}
                   required 
                 />
               </div>
@@ -141,7 +195,7 @@ export default function BatchesPage() {
                   id="end" 
                   type="number"
                   value={formData.end_year}
-                  onChange={(e) => setFormData({...formData, end_year: parseInt(e.target.value)})}
+                  onChange={(e) => setFormData({...formData, end_year: e.target.value})}
                   required 
                 />
               </div>

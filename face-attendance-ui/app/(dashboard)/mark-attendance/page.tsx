@@ -14,24 +14,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function MarkAttendancePage() {
   const cameraRef = useRef<CameraFeedRef>(null)
   const [isRecognizing, setIsRecognizing] = useState(false)
-  const [selectedClassId, setSelectedClassId] = useState<string>("")
-  const [selectedBatchId, setSelectedBatchId] = useState<string>("all")
+  // Fetch available student groups
+  const { data: groupsData, isLoading: isLoadingGroups } = useSWR('/api/students/groups', () => api.getStudentGroups())
+  const groups = groupsData?.groups || []
+  
+  const [selectedGroup, setSelectedGroup] = useState<string>("all")
   const [lastResult, setLastResult] = useState<any>(null)
   const { toast } = useToast()
 
-  // Fetch teacher's classes (Subject + Batch links)
-  const { data: classesData, isLoading: isLoadingClasses } = useSWR('/api/academic/my-classes', () => api.getMyClasses())
-  const classes = classesData || []
-
-  // Update selectedBatchId when class changes (to filter the table)
+  // Warm up the AI engine on page load
   useEffect(() => {
-    if (selectedClassId) {
-      const selectedClass = classes.find((c: any) => c.id === selectedClassId)
-      if (selectedClass) {
-        setSelectedBatchId(selectedClass.batch_id)
+    const warmup = async () => {
+      try {
+        await api.warmupRecognition();
+        console.log("AI Precision Engine warmed up successfully");
+      } catch (err) {
+        console.error("AI Engine Warmup failed:", err);
       }
-    }
-  }, [selectedClassId, classes])
+    };
+    warmup();
+  }, []);
 
   // Fetch recent activity
   const { data: recentAttendance, mutate: mutateRecent } = useSWR('/api/attendance/recent', () => api.getRecentActivity())
@@ -60,24 +62,15 @@ export default function MarkAttendancePage() {
       if (result.students && result.students.length > 0) {
         let studentsToMark = result.students;
         
-        // Filter by selected batch if not "all"
-        if (selectedBatchId !== "all") {
-            studentsToMark = studentsToMark.filter((s: any) => s.batch_id === selectedBatchId);
+        // Filter by selected group if not "all"
+        if (selectedGroup !== "all") {
+            studentsToMark = studentsToMark.filter((s: any) => s.group_name === selectedGroup);
         }
 
         if (studentsToMark.length === 0) {
             toast({
-                title: "Batch Mismatch",
-                description: "Recognized students are not in the batch assigned to this class.",
-                variant: "destructive"
-            });
-            return;
-        }
-
-        if (!selectedClassId) {
-            toast({
-                title: "No Class Selected",
-                description: "Please select a class session first.",
+                title: "Group Mismatch",
+                description: "Recognized student is not in the selected group.",
                 variant: "destructive"
             });
             return;
@@ -88,8 +81,8 @@ export default function MarkAttendancePage() {
         
         await api.markAttendance({
             student_ids: studentIds,
-            class_id: selectedClassId,
             method: "Face"
+            // Backend will now handle class_id/batch_id automatically
         });
         
         // Refresh both the recent activity and the attendance table
@@ -150,19 +143,20 @@ export default function MarkAttendancePage() {
                     </CardTitle>
                     <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 px-4 py-2 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
                         <Filter className="h-4 w-4 text-primary" />
-                        <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                        <Select value={selectedGroup} onValueChange={setSelectedGroup}>
                             <SelectTrigger className="w-[180px] h-8 border-none shadow-none bg-transparent p-0 text-xs font-bold focus:ring-0 uppercase tracking-wider">
-                                <SelectValue placeholder="SELECT CLASS SESSION" />
+                                <SelectValue placeholder="SELECT GROUP" />
                             </SelectTrigger>
                             <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                {classes.map((c: any) => (
-                                    <SelectItem key={c.id} value={c.id} className="rounded-xl font-bold py-3">
-                                        {c.subjects?.name} ({c.batches?.name})
+                                <SelectItem value="all" className="rounded-xl font-bold py-3">ALL GROUPS</SelectItem>
+                                {groups.map((group: string) => (
+                                    <SelectItem key={group} value={group} className="rounded-xl font-bold py-3">
+                                        GROUP {group}
                                     </SelectItem>
                                 ))}
-                                {classes.length === 0 && !isLoadingClasses && (
+                                {groups.length === 0 && !isLoadingGroups && (
                                     <div className="p-4 text-[10px] text-center opacity-50 font-black uppercase tracking-widest">
-                                        No active classes assigned
+                                        No groups found
                                     </div>
                                 )}
                             </SelectContent>
@@ -299,7 +293,7 @@ export default function MarkAttendancePage() {
                 </div>
               </CardHeader>
               <CardContent className="p-0 flex-1 overflow-hidden">
-                <AttendanceTable batchId={selectedBatchId} />
+                <AttendanceTable groupName={selectedGroup} />
               </CardContent>
             </Card>
         </div>
