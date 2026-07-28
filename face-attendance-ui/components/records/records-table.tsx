@@ -104,6 +104,35 @@ export default function RecordsTable() {
 
   const rows = attendanceData?.attendance || []
 
+  const exportToCSV = () => {
+    if (!rows || rows.length === 0) return
+    const headers = ["Student Name", "Roll No", "Date", "Entry Time", "Status", "Batch"]
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((r: any) => [
+        `"${r.student_name}"`,
+        `"${r.student_roll}"`,
+        `"${r.date}"`,
+        `"${r.entry_time}"`,
+        `"${r.status}"`,
+        `"${batches.find((b:any) => b.id === r.batch_id)?.name || "N/A"}"`
+      ].join(","))
+    ].join("\n")
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", `attendance_report_${date}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const generateReport = () => {
+    window.print()
+  }
+
   const handleReset = () => {
     setDate(new Date().toISOString().split('T')[0])
     setSelectedBatchId("all")
@@ -113,8 +142,27 @@ export default function RecordsTable() {
 
   return (
     <div className="space-y-6">
+      {/* Action Buttons (Floating or Header) */}
+      <div className="flex justify-end gap-3 no-print">
+        <Button 
+          onClick={exportToCSV}
+          disabled={rows.length === 0}
+          className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider"
+        >
+          Export Data
+        </Button>
+        <Button 
+          variant="outline"
+          onClick={generateReport}
+          disabled={rows.length === 0}
+          className="border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold uppercase tracking-wider"
+        >
+          Generate Report
+        </Button>
+      </div>
+
       {/* Filter Card */}
-      <Card className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+      <Card className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm no-print filter-card">
         <CardHeader className="pb-4 border-b border-gray-100 dark:border-gray-700">
           <CardTitle className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Filter className="h-4 w-4 text-blue-500" />

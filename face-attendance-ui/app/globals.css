@@ -236,4 +236,50 @@
     overflow-x: hidden;
     contain: layout;
   }
+
+  @media print {
+    .no-print, 
+    nav, 
+    aside, 
+    button, 
+    [role="button"],
+    .filter-card {
+      display: none !important;
+    }
+    
+    body, main {
+      background: white !important;
+      color: black !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    .max-w-7xl {
+      max-width: 100% !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    .Card {
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+    }
+
+    th, td {
+      border: 1px solid #eee !important;
+      color: black !important;
+    }
+
+    .Badge {
+      border: 1px solid #ccc !important;
+      background: transparent !important;
+      color: black !important;
+    }
+  }
 }

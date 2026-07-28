@@ -60,10 +60,29 @@ export default function ProfilePage() {
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [passwordMessage, setPasswordMessage] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [resetEmailLoading, setResetEmailLoading] = useState(false)
+  const [resetEmailMessage, setResetEmailMessage] = useState('')
+  const [resetEmailError, setResetEmailError] = useState('')
   const [isCameraOpen, setIsCameraOpen] = useState(false)
   const cameraRef = useRef<CameraFeedRef>(null)
   const [showOtherDepartment, setShowOtherDepartment] = useState(false)
   const [otherDepartmentInput, setOtherDepartmentInput] = useState('')
+
+  const handleSendResetEmail = async () => {
+    if (!user?.email) return
+    setResetEmailLoading(true)
+    setResetEmailError('')
+    setResetEmailMessage('')
+    try {
+      await api.resetPassword(user.email)
+      setResetEmailMessage(`Password reset link sent to ${user.email}! Check your inbox.`)
+      setTimeout(() => setResetEmailMessage(''), 5000)
+    } catch (err: any) {
+      setResetEmailError(err.message || 'Failed to send reset email')
+    } finally {
+      setResetEmailLoading(false)
+    }
+  }
 
   const DEPARTMENT_OPTIONS = [
     "Computer Science Engineering",
@@ -725,6 +744,58 @@ export default function ProfilePage() {
                   </Button>
                 </div>
               </form>
+
+              {/* Reset via Email Section */}
+              <div className="mt-8 pt-6 border-t border-border">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="font-semibold text-foreground flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-blue-500" />
+                      Reset via Email
+                    </h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Prefer to reset your password using an email link? We'll send a link to <span className="font-medium text-foreground">{user?.email}</span>.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSendResetEmail}
+                    disabled={resetEmailLoading}
+                    className="border-blue-500/30 hover:bg-blue-500/10 text-blue-600 dark:text-blue-400 whitespace-nowrap"
+                  >
+                    {resetEmailLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Sending Link...
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-4 h-4 mr-2" />
+                        Send Reset Link
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {resetEmailMessage && (
+                  <Alert className="mt-4 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <AlertDescription className="text-green-700 dark:text-green-300">
+                      {resetEmailMessage}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {resetEmailError && (
+                  <Alert className="mt-4 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
+                    <AlertCircle className="h-4 w-4 text-red-500" />
+                    <AlertDescription className="text-red-700 dark:text-red-300">
+                      {resetEmailError}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

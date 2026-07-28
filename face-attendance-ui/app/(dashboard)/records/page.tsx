@@ -11,14 +11,6 @@ export default function RecordsPage() {
             View, filter, and export student attendance data
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors">
-            Export Data
-          </button>
-          <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors">
-            Generate Report
-          </button>
-        </div>
       </div>
       
       <RecordsTable />

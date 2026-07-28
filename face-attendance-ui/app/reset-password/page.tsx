@@ -20,6 +20,24 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    // Extract access_token when redirected from Supabase password reset email
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash
+      const searchParams = new URLSearchParams(window.location.search)
+      let token = searchParams.get('access_token')
+
+      if (!token && hash && hash.includes('access_token=')) {
+        const hashParams = new URLSearchParams(hash.replace('#', '?'))
+        token = hashParams.get('access_token')
+      }
+
+      if (token) {
+        localStorage.setItem('auth_token', token)
+      }
+    }
+  }, [])
  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
